@@ -21,6 +21,7 @@ https://picassosr.readthedocs.io/en/latest/localize.html
 
 
 PERFORMING IMAGE REGISTRATION: TurboREG : plugins/TurboReg_.jar
+https://bigwww.epfl.ch/thevenaz/turboreg/
 01) Once two seperate files are opened image registration can be perfomed
 02)One should be named the Source and the other the Target file. Here the Affine registration is performed.
 03)Image registration can be performed with the Quality being "accurate" and the batch "Automatic" 
@@ -29,6 +30,7 @@ PERFORMING IMAGE REGISTRATION: TurboREG : plugins/TurboReg_.jar
 06)The registered image can be saved and the puncta localized via ThuderStorm/Piccasso
 
 PERFORMING DRIFT CORRECTION:STACKREG ImageJ Plugin : plugins/StackReg_.jar
+https://bigwww.epfl.ch/thevenaz/stackreg/
 01)For stackreg, the Affine drift correction is performed
 
 Fiducial markers are localized using both software. Once localized, .csv file with said localizations are extracted. This .csv file is used for "IMAGE REG.py" The data is loaded to calculate the image registration matrix. 
