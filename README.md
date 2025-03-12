@@ -29,8 +29,11 @@ https://bigwww.epfl.ch/thevenaz/turboreg/
 05) The remaining image should be convereted into the same bit depth as the raw .TIFF files ( 16-bit image depth in this scenario)
 06)The registered image can be saved and the puncta localized via ThuderStorm/Piccasso
 
-PERFORMING DRIFT CORRECTION:STACKREG ImageJ Plugin : plugins/StackReg_.jar
+PERFORMING DRIFT CORRECTION:STACKREG ImageJ Plugin : 
+
+plugins/StackReg_.jar
 https://bigwww.epfl.ch/thevenaz/stackreg/
+
 01)For stackreg, the Affine drift correction is performed
 
 Fiducial markers are localized using both software. Once localized, .csv file with said localizations are extracted. This .csv file is used for "IMAGE REG.py" The data is loaded to calculate the image registration matrix. 
