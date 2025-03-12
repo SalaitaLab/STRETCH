@@ -12,10 +12,13 @@ RUNNING THUNDERSTORM: PUNCTA LOCALIZATION
 03)In order to run ThunderStorm for each seperate image, Plugin -> ThunderStorm ->Run Analysis
 Please we aware: ThunderStorm has a pre-set camera setting. This can be changed by Plugi  -> ThunderStorm -> Camera Settings -> Enter the camera settings for the image analysis -> OK
 Once the camera settings have been adjusted, perform the analysis by clicking "run analysis"
+
 04)This will generate a .csv file with the x(nm)/y(nm) coordinates for the raw images
 05) Once the information for the raw files have been saved.
-RUNNING PICCASSO: PUNCTA LOCALIZATION
-03)
+
+RUNNING PICCASSO: PUNCTA LOCALIZATION: Please refer to the URL below for further instructions
+https://picassosr.readthedocs.io/en/latest/localize.html
+
 
 PERFORMING IMAGE REGISTRATION: TurboREG : plugins/TurboReg_.jar
 01) Once two seperate files are opened image registration can be perfomed
@@ -26,8 +29,14 @@ PERFORMING IMAGE REGISTRATION: TurboREG : plugins/TurboReg_.jar
 06)The registered image can be saved and the puncta localized via ThuderStorm/Piccasso
 
 PERFORMING DRIFT CORRECTION:STACKREG ImageJ Plugin : plugins/StackReg_.jar
+01)For stackreg, the Affine drift correction is performed
+
+Fiducial markers are localized using both software. Once localized, .csv file with said localizations are extracted. This .csv file is used for "IMAGE REG.py" The data is loaded to calculate the image registration matrix. 
+Once a transformation matrix is calculated the information will be saved as a .txt file. This information will be used for the "DISTANCE CALC" code, where the calculated transformation matrix should be loaded into the designated location. A "MOCK" matrix has been loaded as a placeholder. 
 
 
 
-Fiducial markers are localized using both software. Once localized, .csv file with said localizations are extracted. This .csv file is used for "MAGE REG". 
-Once a transformation matrix is calculated the information will be saved as a .txt file. This information will be used for the "DISTANCE CALC" code, where the calculated transformation matrix should be loaded into the designated location. A "MOCK" matrix has been loaded as a placeholder. For the puncta which 232 nm of each other, they will be "paired" and saved as a seperate output file.THis 
+
+
+
+
