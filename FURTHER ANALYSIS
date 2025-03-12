@@ -1,0 +1,159 @@
+
+#################################################################################################################################
+#################################      LOADING DATA AND CALCULATE DISTANCE AND ANGLE VALUES   ###################################
+################################################################################################################################
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.spatial import cKDTree
+
+# Load CSV files
+columns_to_use = ["x [nm]", "y [nm]", "uncertainty_xy [nm]"]
+df_c1 = pd.read_csv("C1.csv", usecols=columns_to_use)
+df_c2 = pd.read_csv("C2.csv", usecols=columns_to_use)
+
+# Scatter plot before image registration
+plt.figure(figsize=(8, 6))
+plt.scatter(df_c1["x [nm]"], df_c1["y [nm]"], color='green', alpha=0.2, label='TIRF 560')
+plt.scatter(df_c2["x [nm]"], df_c2["y [nm]"], color='red', alpha=0.2, label='TIRF 647')
+plt.xlabel("X Position (nm)")
+plt.ylabel("Y Position (nm)")
+plt.title("Scatter Plot: CHANNELS BEFORE IMAGE REGISTRATION")
+plt.legend()
+plt.grid(True)
+plt.savefig("scatter_plot.png", dpi=300, bbox_inches="tight")
+plt.show()
+
+# Calculate distances within 232 nm radius
+radius_threshold = 232
+c2_tree = cKDTree(df_c2[["x [nm]", "y [nm]"]])
+results = []
+for i, row in df_c1.iterrows():
+    indices = c2_tree.query_ball_point([row["x [nm]"], row["y [nm]"]], radius_threshold)
+    for idx in indices:
+        dist = np.sqrt((df_c2.iloc[idx]["x [nm]"] - row["x [nm]"])**2 + (df_c2.iloc[idx]["y [nm]"] - row["y [nm]"])**2)
+        results.append([row["x [nm]"], row["y [nm]"], df_c2.iloc[idx]["x [nm]"], df_c2.iloc[idx]["y [nm]"], dist, row["uncertainty_xy [nm]"], df_c2.iloc[idx]["uncertainty_xy [nm]"]])
+
+# Save distance data
+columns = ["C1 X (nm)", "C1 Y (nm)", "C2 X (nm)", "C2 Y (nm)", "Distance (nm)", "C1 Uncertainty (nm)", "C2 Uncertainty (nm)"]
+distance_df = pd.DataFrame(results, columns=columns)
+distance_df.to_excel("End-to-End Distance_PUNCTA_NO REG.xlsx", index=False)
+
+# Plot histogram of distances
+plt.figure(figsize=(10, 6))
+plt.hist(distance_df["Distance (nm)"], bins=30, color='blue', alpha=0.7, edgecolor='black')
+plt.xlabel("Distance (nm)")
+plt.ylabel("Frequency")
+plt.title("END-TO-END DISTANCE DISTRIBUTION (nm)")
+plt.yticks(range(0, int(max(plt.hist(distance_df["Distance (nm)"], bins=30)[0])) + 1))
+plt.savefig("Distance_Histogram.png", dpi=300, bbox_inches="tight")
+plt.show()
+
+# Compute dipole angles
+angles_rad = np.arctan2(distance_df["C2 Y (nm)"] - distance_df["C1 Y (nm)"], distance_df["C2 X (nm)"] - distance_df["C1 X (nm)"])
+distance_df["Dipole Angle (degrees)"] = (np.degrees(angles_rad) + 360) % 360
+distance_df.to_excel("End-to-End Distance_PUNCTA_NO REG.xlsx", index=False)
+
+# Plot dipole angle distribution (circular histogram)
+plt.figure(figsize=(8, 8))
+ax = plt.subplot(111, projection='polar')
+angles_rad = np.radians(distance_df["Dipole Angle (degrees)"])
+ax.hist(angles_rad, bins=30, color='pink', alpha=0.3, edgecolor='black')
+ax.set_theta_zero_location('E')
+ax.set_theta_direction(1)
+ax.set_yticks(range(0, int(max(ax.hist(angles_rad, bins=30)[0])) + 1))
+ax.set_title("Dipole Angle Distribution (Degrees)")
+plt.show()
+'''
+'''
+################################################################################################################################
+############## DISTANCE/ANGLE ANALYSIS : DISTANCE VS ANGLE & DISTANCE VS UNCERTAINTY & CHROMATIC ABBERATION DETECTION
+###############################################################################################################################
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.stats import pearsonr
+
+# Load the saved Excel file
+file_name = "End-to-End Distance_PUNCTA_NO REG.xlsx"
+distance_df = pd.read_excel(file_name)
+
+# Scatter Plot: Distance vs. Dipole Angle
+plt.figure(figsize=(8, 6))
+plt.scatter(distance_df["Dipole Angle (degrees)"], distance_df["Distance (nm)"], color='purple', alpha=0.5)
+plt.xlabel("Dipole Angle (degrees)")
+plt.ylabel("End to End Distance of Dipole (nm)")
+plt.title("Scatter Plot: Distance vs. Dipole Angle")
+plt.grid(True)
+correlation, p_value = pearsonr(distance_df["Dipole Angle (degrees)"], distance_df["Distance (nm)"])
+plt.show()
+print(f"Pearson Correlation Coefficient: {correlation:.4f}, P-Value: {p_value:.4f}")
+
+# Scatter Plot: End-to-End Distance vs. Uncertainty
+plt.figure(figsize=(8, 6))
+plt.scatter(distance_df["Distance (nm)"], distance_df["C1 Uncertainty (nm)"], color='green', alpha=0.5, label="C1 Uncertainty")
+plt.scatter(distance_df["Distance (nm)"], distance_df["C2 Uncertainty (nm)"], color='red', alpha=0.5, label="C2 Uncertainty")
+plt.xlabel("End-to-End Distance (nm)")
+plt.ylabel("Uncertainty (nm)")
+plt.title("End-to-End Distance vs. Uncertainty (C1 & C2)")
+plt.legend()
+plt.grid(True)
+correlation_c1, p_value_c1 = pearsonr(distance_df["Distance (nm)"], distance_df["C1 Uncertainty (nm)"])
+correlation_c2, p_value_c2 = pearsonr(distance_df["Distance (nm)"], distance_df["C2 Uncertainty (nm)"])
+plt.show()
+print(f"C1 Pearson Correlation: {correlation_c1:.4f}, P-Value: {p_value_c1:.4f}")
+print(f"C2 Pearson Correlation: {correlation_c2:.4f}, P-Value: {p_value_c2:.4f}")
+
+# Scatter Plot: Distance from Center vs. Dipole Length
+roi_size, pixel_size_nm = 512, 160
+image_center_x, image_center_y = (roi_size / 2) * pixel_size_nm, (roi_size / 2) * pixel_size_nm
+dipole_center_x = (distance_df["C1 X (nm)"] + distance_df["C2 X (nm)"]) / 2
+dipole_center_y = (distance_df["C1 Y (nm)"] + distance_df["C2 Y (nm)"]) / 2
+distance_from_center = np.sqrt((dipole_center_x - image_center_x) ** 2 + (dipole_center_y - image_center_y) ** 2)
+
+plt.figure(figsize=(8, 6))
+plt.scatter(distance_from_center, distance_df["Distance (nm)"], color='blue', alpha=0.5)
+plt.xlabel("Distance from Image Center (nm)")
+plt.ylabel("End-to-End Distance (nm)")
+plt.title("Chromatic Aberration Analysis: Distance from Center vs. Dipole Length")
+plt.grid(True)
+plt.show()
+'''
+'''
+##########################################################################################
+#########################  DIPOLE WITH DIRECTIONS  ########################################
+#############################################################################################
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Load the saved Excel file
+file_name = "End-to-End Distance_PUNCTA_NO REG.xlsx"
+distance_df = pd.read_excel(file_name)
+
+# Extract C1 and C2 coordinates
+x_c1, y_c1 = distance_df["C1 X (nm)"], distance_df["C1 Y (nm)"]
+x_c2, y_c2 = distance_df["C2 X (nm)"], distance_df["C2 Y (nm)"]
+
+# Create scatter plot with symbolic arrows indicating directionality
+plt.figure(figsize=(10, 8))
+plt.scatter(x_c1, y_c1, color='green', alpha=0.7, label="C1 (Green Termini)")
+plt.scatter(x_c2, y_c2, color='red', alpha=0.7, label="C2 (Red Termini)")
+
+# Draw symbolic arrows from C1 to C2
+for i in range(len(distance_df)):
+    plt.plot([x_c1[i], x_c2[i]], [y_c1[i], y_c2[i]], 'k--', alpha=0.7)  # Dashed line for trajectory
+    plt.text((x_c1[i] + x_c2[i]) / 2, (y_c1[i] + y_c2[i]) / 2, "--->", fontsize=12, color='black', 
+             ha='center', va='center', fontweight='bold', rotation=np.degrees(np.arctan2(y_c2[i] - y_c1[i], x_c2[i] - x_c1[i])))  # Directional text
+
+# Labels, title, and legend
+plt.xlabel("X Position (nm)")
+plt.ylabel("Y Position (nm)")
+plt.title("Scatter Plot with Symbolic Directional Arrows: C1 to C2")
+plt.legend()
+plt.grid(True)
+
+# Show the plot
+plt.show()
+
