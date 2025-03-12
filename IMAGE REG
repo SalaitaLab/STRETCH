@@ -1,0 +1,361 @@
+#######################################################################################################################
+#PLOTTING END TO END DISTANCE & ANGLE FOR FIDUCIAL MARKER BEFORE AND AFTER REGISTRATION: NO VISUALIZATION  ##############################
+#######################################################################################################################
+#WHAT DOES THIS CODE DO?
+#FIRST WHEN YOU INTIALLY FEED IT TWO IMAGES OF FIDUCIAL MARKERS FOR TWO SEPERATE CHANNELS IT PERFORMS IMAGE REGISTRATION AND FIGURES OUT WHAT THE 
+#TRANSFOROMATION MATRIX IS FOR SAID SPECIFIC IMAGE OF FIDUCIAL MARKERS. A SAMPLE CAN THEN BE FEW INTO THE SYSTEM AND REGISTRATION CAN BE PERFORMED ON THE SAID 
+#SAMPLE IMAGES. THERE IS A VISUALIZATION OF PRE-REGISTRATION VS POST REGISTRATION ANALYSIS. 
+######################################################################################################################################
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+from scipy.optimize import curve_fit
+
+# Gaussian fitting function
+def gaussian(x, amplitude, mean, stddev):
+    return amplitude * np.exp(-((x - mean) ** 2 / (2 * stddev ** 2)))
+
+# Function to calculate the Euclidean distance between two points
+def calculate_distance(x1, y1, x2, y2):
+    return np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
+# Function to calculate the angle between two points in degrees
+def calculate_angle(x1, y1, x2, y2):
+    return np.degrees(np.arctan2(y2 - y1, x2 - x1))
+
+# Function to filter out puncta within a specified threshold distance in the same channel
+def filter_close_puncta(x, y, threshold=50):
+    filtered_x = []
+    filtered_y = []
+    for i in range(len(x)):
+        too_close = False
+        for j in range(len(x)):
+            if i != j and calculate_distance(x[i], y[i], x[j], y[j]) < threshold:
+                too_close = True
+                break
+        if not too_close:
+            filtered_x.append(x[i])
+            filtered_y.append(y[i])
+    return np.array(filtered_x), np.array(filtered_y)
+
+# Step 1: DATASET is Localized via ThunderStorm(Fiji Plugin)/& Piccasso 
+#Specifics for Localization is provided seperatly in the supporting information attached seperatly
+source_data = pd.read_csv('Before_reg_red_fig.csv')
+target_data = pd.read_csv('Before_reg_green_fig.csv')
+
+# Extracting X and Y coordinates
+source_x = source_data['x [nm]']
+source_y = source_data['y [nm]']
+target_x = target_data['x [nm]']
+target_y = target_data['y [nm]']
+
+# Distance calculation for the first dataset
+valid_distances = []
+valid_pairs = []
+source_coords = []
+target_coords = []
+
+for i, (sx, sy) in enumerate(zip(source_x, source_y)):
+    for j, (tx, ty) in enumerate(zip(target_x, target_y)):
+        distance = calculate_distance(sx, sy, tx, ty)
+        if distance <= 232:
+            valid_distances.append(distance)
+            valid_pairs.append((i, j))
+            source_coords.append((sx, sy))
+            target_coords.append((tx, ty))
+
+# Angle calculation for the first dataset
+angles = []
+for i, j in valid_pairs:
+    sx, sy = source_x[i], source_y[i]
+    tx, ty = target_x[j], target_y[j]
+    angle = calculate_angle(sx, sy, tx, ty)
+    angles.append(angle)
+
+# Step 2: Loading the second set of data (After registration)
+red_fiducial_data = pd.read_csv('After_reg_red_fid.csv')
+green_fiducial_data = pd.read_csv('After_reg_green_fid.csv')
+
+# Extracting X and Y coordinates after registration
+red_fiducial_x = red_fiducial_data['x [nm]']
+red_fiducial_y = red_fiducial_data['y [nm]']
+green_fiducial_x = green_fiducial_data['x [nm]']
+green_fiducial_y = green_fiducial_data['y [nm]']
+
+# Distance calculation for the second dataset (after registration)
+valid_fiducial_distances = []
+valid_fiducial_pairs = []
+fiducial_red_coords = []
+fiducial_green_coords = []
+
+for i, (gx, gy) in enumerate(zip(green_fiducial_x, green_fiducial_y)):
+    for j, (rx, ry) in enumerate(zip(red_fiducial_x, red_fiducial_y)):
+        distance = calculate_distance(gx, gy, rx, ry)
+        if distance <= 232:
+            valid_fiducial_distances.append(distance)
+            valid_fiducial_pairs.append((i, j))
+            fiducial_green_coords.append((gx, gy))
+            fiducial_red_coords.append((rx, ry))
+
+# Angle calculation for the second dataset
+fiducial_angles = []
+for i, j in valid_fiducial_pairs:
+    gx, gy = green_fiducial_x[i], green_fiducial_y[i]
+    rx, ry = red_fiducial_x[j], red_fiducial_y[j]
+    angle = calculate_angle(gx, gy, rx, ry)
+    fiducial_angles.append(angle)
+
+# Step 3: Saving all data to a single Excel file
+df_combined = pd.DataFrame({
+    'Source_X_before_reg [nm]': [coord[0] for coord in source_coords],
+    'Source_Y_before_reg [nm]': [coord[1] for coord in source_coords],
+    'Target_X_before_reg [nm]': [coord[0] for coord in target_coords],
+    'Target_Y_before_reg [nm]': [coord[1] for coord in target_coords],
+    'Distance_before_reg [nm]': valid_distances,
+    'Angle_before_reg [degrees]': angles,
+    'Green_X_after_reg [nm]': [coord[0] for coord in fiducial_green_coords],
+    'Green_Y_after_reg [nm]': [coord[1] for coord in fiducial_green_coords],
+    'Red_X_after_reg [nm]': [coord[0] for coord in fiducial_red_coords],
+    'Red_Y_after_reg [nm]': [coord[1] for coord in fiducial_red_coords],
+    'Distance_after_reg [nm]': valid_fiducial_distances,
+    'Angle_after_reg [degrees]': fiducial_angles
+})
+
+# Saving to Excel
+df_combined.to_excel('combined_registration_data.xlsx', index=False)
+'''
+'''
+##########################################################################################################################
+#######################  02.   VISUALIZATION STEP FOR COLLECTED AND PRORCESS DATA: HISTOGRAM AND ANGLES    #####################################
+###########################################################################################################################
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Read the Excel file from the same folder
+data = pd.read_excel('combined_registration_data.xlsx')
+
+# Extract the relevant columns
+distance_before_reg = data['Distance_before_reg [nm]']
+distance_after_reg = data['Distance_after_reg [nm]']
+angle_before_reg = data['Angle_before_reg [degrees]']
+angle_after_reg = data['Angle_after_reg [degrees]']
+
+# Calculate statistics for both columns
+mean_before = np.mean(distance_before_reg)
+median_before = np.median(distance_before_reg)
+std_before = np.std(distance_before_reg)
+mode_before = distance_before_reg.mode()[0]
+
+mean_after = np.mean(distance_after_reg)
+median_after = np.median(distance_after_reg)
+std_after = np.std(distance_after_reg)
+mode_after = distance_after_reg.mode()[0]
+
+# Save the statistics into a text file
+with open('Fiducial Marker Data analysis.txt', 'w') as f:
+    f.write("Fiducial Marker Data Analysis\n")
+    f.write("=====================================\n")
+    f.write("Distance Before Registration (nm):\n")
+    f.write(f"Mean: {mean_before:.2f}\n")
+    f.write(f"Median: {median_before:.2f}\n")
+    f.write(f"Mode: {mode_before:.2f}\n")
+    f.write(f"Standard Deviation: {std_before:.2f}\n\n")
+    
+    f.write("Distance After Registration (nm):\n")
+    f.write(f"Mean: {mean_after:.2f}\n")
+    f.write(f"Median: {median_after:.2f}\n")
+    f.write(f"Mode: {mode_after:.2f}\n")
+    f.write(f"Standard Deviation: {std_after:.2f}\n")
+
+# Create subplots for the histograms and circular plots
+fig, axs = plt.subplots(2, 2, figsize=(10, 10))
+
+# Plot histogram for Distance Before Registration
+axs[0, 0].hist(distance_before_reg, bins=300, color='blue', alpha=0.7)
+axs[0, 0].set_title('Distance Before Registration [nm]')
+axs[0, 0].set_xlabel('Distance [nm]')
+axs[0, 0].set_ylabel('Frequency')
+axs[0, 0].grid(True, which='both')
+
+# Circular plot for Angles Before Registration
+axs[1, 0] = plt.subplot(2, 2, 3, polar=True)
+axs[1, 0].hist(np.radians(angle_before_reg), bins=50, color='purple', alpha=0.7)
+axs[1, 0].set_title('Angle Before Registration [degrees]')
+
+# Plot histogram for Distance After Registration
+axs[0, 1].hist(distance_after_reg, bins=300, color='green', alpha=0.7)
+axs[0, 1].set_title('Distance After Registration [nm]')
+axs[0, 1].set_xlabel('Distance [nm]')
+axs[0, 1].set_ylabel('Frequency')
+axs[0, 1].grid(True, which='both')
+
+# Circular plot for Angles After Registration
+axs[1, 1] = plt.subplot(2, 2, 4, polar=True)
+axs[1, 1].hist(np.radians(angle_after_reg), bins=50, color='orange', alpha=0.7)
+axs[1, 1].set_title('Angle After Registration [degrees]')
+
+# Adjust layout and show plot
+plt.tight_layout()
+plt.show()
+
+
+##########################################################################################################################
+#######################  03. CORRELATION BETWEEN DISTANCE AND ANGLE BEFORE AND AFTER REGISTRATION             ############
+###########################################################################################################################
+
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Load the Excel file from the same folder
+data = pd.read_excel('combined_registration_data.xlsx')
+
+# Extract the columns for plotting
+distance_before_reg = data['Distance_before_reg [nm]']
+angle_before_reg = data['Angle_before_reg [degrees]']
+distance_after_reg = data['Distance_after_reg [nm]']
+angle_after_reg = data['Angle_after_reg [degrees]']
+
+# Create subplots for both scatter plots (before and after registration)
+fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
+# Scatter plot for Distance vs Angle Before Registration
+axs[0].scatter(distance_before_reg, angle_before_reg, color='blue', alpha=0.7)
+axs[0].set_title('Distance vs Angle Before Registration')
+axs[0].set_xlabel('Distance [nm]')
+axs[0].set_ylabel('Angle [degrees]')
+axs[0].grid(True)
+
+# Scatter plot for Distance vs Angle After Registration
+axs[1].scatter(distance_after_reg, angle_after_reg, color='green', alpha=0.7)
+axs[1].set_title('Distance vs Angle After Registration')
+axs[1].set_xlabel('Distance [nm]')
+axs[1].set_ylabel('Angle [degrees]')
+axs[1].grid(True)
+
+# Adjust layout to display plots side by side
+plt.tight_layout()
+plt.show()
+
+####################################################################################################################
+##############   TAKING CARE OF OUTLIER POINTS BASED ON DISTANCE AND CLUSTERING   ###################################
+#####################################################################################################################
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Load the Excel file from the same folder
+data = pd.read_excel('combined_registration_data.xlsx')
+
+# Extract the relevant columns
+distance_before_reg = data['Distance_before_reg [nm]']
+distance_after_reg = data['Distance_after_reg [nm]']
+angle_before_reg = data['Angle_before_reg [degrees]']
+angle_after_reg = data['Angle_after_reg [degrees]']
+source_x = data['Source_X_before_reg [nm]']
+source_y = data['Source_Y_before_reg [nm]']
+green_x = data['Green_X_after_reg [nm]']
+green_y = data['Green_Y_after_reg [nm]']
+
+# Calculate the 95th percentile for distances
+percentile_95_before = np.percentile(distance_before_reg, 95)
+percentile_95_after = np.percentile(distance_after_reg, 95)
+
+# Create a flag column indicating if the distance is within the 95th percentile
+data['Within_95_percent_before'] = distance_before_reg <= percentile_95_before
+data['Within_95_percent_after'] = distance_after_reg <= percentile_95_after
+
+# Create two subplots to compare both graphs
+plt.figure(figsize=(14, 6))
+
+# First subplot (before registration without color distinction)
+plt.subplot(1, 2, 1)
+plt.scatter(distance_before_reg, angle_before_reg, color='blue', alpha=0.7)
+plt.title('Distance vs Angle Before Registration')
+plt.xlabel('Distance [nm]')
+plt.ylabel('Angle [degrees]')
+plt.grid(True)
+
+# Second subplot (before registration, colored by 95% population)
+plt.subplot(1, 2, 2)
+plt.scatter(distance_before_reg[data['Within_95_percent_before']], 
+            angle_before_reg[data['Within_95_percent_before']], color='green', alpha=0.6, label='Within 95%')
+plt.scatter(distance_before_reg[~data['Within_95_percent_before']], 
+            angle_before_reg[~data['Within_95_percent_before']], color='red', alpha=0.6, label='Outside 95%')
+plt.title('Distance vs Angle Before Registration (Colored by 95% Population)')
+plt.xlabel('Distance [nm]')
+plt.ylabel('Angle [degrees]')
+plt.grid(True)
+plt.legend()
+
+plt.tight_layout()
+plt.show()
+
+# Plot for After Registration (Distance vs Angle, colored by 95%)
+plt.figure(figsize=(14, 6))
+
+# First subplot (after registration without color distinction)
+plt.subplot(1, 2, 1)
+plt.scatter(distance_after_reg, angle_after_reg, color='blue', alpha=0.7)
+plt.title('Distance vs Angle After Registration')
+plt.xlabel('Distance [nm]')
+plt.ylabel('Angle [degrees]')
+plt.grid(True)
+
+# Second subplot (after registration, colored by 95% population)
+plt.subplot(1, 2, 2)
+plt.scatter(distance_after_reg[data['Within_95_percent_after']], 
+            angle_after_reg[data['Within_95_percent_after']], color='green', alpha=0.6, label='Within 95%')
+plt.scatter(distance_after_reg[~data['Within_95_percent_after']], 
+            angle_after_reg[~data['Within_95_percent_after']], color='red', alpha=0.6, label='Outside 95%')
+plt.title('Distance vs Angle After Registration (Colored by 95% Population)')
+plt.xlabel('Distance [nm]')
+plt.ylabel('Angle [degrees]')
+plt.grid(True)
+plt.legend()
+
+plt.tight_layout()
+plt.show()
+
+# Save the filtered data into a new Excel file
+data[['Source_X_before_reg [nm]', 'Source_Y_before_reg [nm]', 'Green_X_after_reg [nm]', 'Green_Y_after_reg [nm]', 
+      'Distance_before_reg [nm]', 'Angle_before_reg [degrees]', 
+      'Distance_after_reg [nm]', 'Angle_after_reg [degrees]', 
+      'Within_95_percent_before', 'Within_95_percent_after']].to_excel('Filter Data_95th_percentile.xlsx', index=False)
+
+
+####################################################################################################################
+##############         CALCULATING THE AFFINE MATRIX USING THE INFORMATION : 3 x 3     ###################################
+#####################################################################################################################
+
+import pandas as pd
+import numpy as np
+
+# Load the uploaded Excel file
+data = pd.read_excel('Filter Data_95th_percentile.xlsx')
+
+# Extract the columns of interest (before and after registration coordinates)
+source_coords = data[['Source_X_before_reg [nm]', 'Source_Y_before_reg [nm]']].values
+target_coords = data[['Green_X_after_reg [nm]', 'Green_Y_after_reg [nm]']].values
+
+# Add a column of ones to the source coordinates to account for translation
+source_coords_augmented = np.hstack([source_coords, np.ones((source_coords.shape[0], 1))])
+
+# Now solve for the 3x3 transformation matrix using least squares
+A, res, rank, s = np.linalg.lstsq(source_coords_augmented, target_coords, rcond=None)
+
+# Create the 3x3 transformation matrix by adding the extra row for homogeneous coordinates
+transformation_matrix_3x3 = np.vstack([A.T, [0, 0, 1]])
+
+# Save the transformation matrix to a text file
+transformation_matrix_text = f"3x3 Transformation Matrix (including translation):\n{transformation_matrix_3x3}"
+with open('Transformation_Matrix_3x3.txt', 'w') as f:
+    f.write(transformation_matrix_text)
+
+# Print the 3x3 transformation matrix
+############################################################################################
+print(transformation_matrix_3x3)
+#############################################################################################
