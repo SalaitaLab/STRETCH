@@ -1,0 +1,71 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.spatial import cKDTree
+
+# Load and extract coordinates
+green_before = pd.read_csv('Channel_002_locs.csv')[['x [nm]', 'y [nm]']].values
+red_before = pd.read_csv('Channel_001_locs.csv')[['x [nm]', 'y [nm]']].values
+
+# Apply homogeneous transformation
+transformation_matrix = np.array([
+    [1.00003646, -0.00018198, 3.42918564],
+    [0.00003712, 0.99981452, -1.71129417],
+    [0.00000000, 0.00000000, 1.00000000]
+])
+green_after = np.hstack([green_before, np.ones((green_before.shape[0], 1))]) @ transformation_matrix.T
+red_after = np.hstack([red_before, np.ones((red_before.shape[0], 1))]) @ transformation_matrix.T
+
+# k-d Tree nearest neighbor matching
+matching_threshold = 232
+green_tree, red_tree = cKDTree(green_before), cKDTree(red_before)
+matched_green_dists, _ = red_tree.query(green_before, distance_upper_bound=matching_threshold)
+matched_red_dists, _ = green_tree.query(red_before, distance_upper_bound=matching_threshold)
+
+valid_green, valid_red = matched_green_dists < matching_threshold, matched_red_dists < matching_threshold
+matched_green, matched_red = green_before[valid_green], red_before[valid_red]
+matched_green_after, matched_red_after = green_after[valid_green], red_after[valid_red]
+
+# Scatter plot
+plt.figure(figsize=(10, 8))
+plt.scatter(matched_green[:, 0], matched_green[:, 1], color='green', label='TIRF 560 Before', alpha=0.3)
+plt.scatter(matched_red[:, 0], matched_red[:, 1], color='red', label='TIRF 647 Before', alpha=0.3)
+plt.scatter(matched_red_after[:, 0], matched_red_after[:, 1], color='orange', label='TIRF 647 After', alpha=0.3)
+plt.xlabel('X Coordinate [nm]'), plt.ylabel('Y Coordinate [nm]')
+plt.title('SMLM Puncta for TIRF Channels'), plt.legend(), plt.grid(True)
+plt.show()
+
+# Distance analysis
+before_dists, _ = green_tree.query(red_before, distance_upper_bound=matching_threshold)
+after_dists, _ = green_tree.query(red_after[:, :2], distance_upper_bound=matching_threshold)
+valid_before, valid_after = before_dists < matching_threshold, after_dists < matching_threshold
+
+def compute_stats(dists):
+    return np.mean(dists), np.median(dists), np.std(dists), pd.Series(dists).mode().iloc[0] if len(dists) else np.nan
+
+stats_before, stats_after = compute_stats(before_dists[valid_before]), compute_stats(after_dists[valid_after])
+print(f"Before Registration - Mean: {stats_before[0]:.2f}, Median: {stats_before[1]:.2f}, Mode: {stats_before[3]:.2f}, Std: {stats_before[2]:.2f}")
+print(f"After Registration - Mean: {stats_after[0]:.2f}, Median: {stats_after[1]:.2f}, Mode: {stats_after[3]:.2f}, Std: {stats_after[2]:.2f}")
+
+# Histograms
+fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+for ax, dists, title in zip(axes, [before_dists[valid_before], after_dists[valid_after]], 
+                            ['Before Registration', 'After Registration']):
+    ax.hist(dists, bins=60, alpha=0.7)
+    ax.set(title=title, xlabel='Distance [nm]', ylabel='Frequency')
+    ax.grid(True)
+plt.tight_layout(), plt.show()
+
+# Angle Calculation
+def calculate_angle(x1, y1, x2, y2):
+    return np.degrees(np.arctan2(y2 - y1, x2 - x1))
+
+angles_before = [calculate_angle(gx, gy, rx, ry) for gx, gy, rx, ry in zip(green_before[:, 0], green_before[:, 1], red_before[:, 0], red_before[:, 1])]
+angles_after = [calculate_angle(gx, gy, rx, ry) for gx, gy, rx, ry in zip(green_before[:, 0], green_before[:, 1], red_after[:, 0], red_after[:, 1])]
+
+# Circular histograms
+fig, axes = plt.subplots(1, 2, figsize=(12, 6), subplot_kw={'projection': 'polar'})
+for ax, angles, title in zip(axes, [angles_before, angles_after], ['Angles Before', 'Angles After']):
+    ax.hist(np.radians(angles), bins=30, alpha=0.7)
+    ax.set_title(title)
+plt.tight_layout(), plt.show()
