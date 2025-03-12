@@ -16,7 +16,9 @@ Once the camera settings have been adjusted, perform the analysis by clicking "r
 04)This will generate a .csv file with the x(nm)/y(nm) coordinates for the raw images
 05) Once the information for the raw files have been saved.
 
-RUNNING PICCASSO: PUNCTA LOCALIZATION: Please refer to the URL below for further instructions
+RUNNING PICCASSO: PUNCTA LOCALIZATION: 
+Please refer to the URL below for further instructions
+
 https://picassosr.readthedocs.io/en/latest/localize.html
 
 
