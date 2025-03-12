@@ -21,7 +21,9 @@ https://picassosr.readthedocs.io/en/latest/localize.html
 
 
 PERFORMING IMAGE REGISTRATION: TurboREG : plugins/TurboReg_.jar
+
 https://bigwww.epfl.ch/thevenaz/turboreg/
+
 01) Once two seperate files are opened image registration can be perfomed
 02)One should be named the Source and the other the Target file. Here the Affine registration is performed.
 03)Image registration can be performed with the Quality being "accurate" and the batch "Automatic" 
