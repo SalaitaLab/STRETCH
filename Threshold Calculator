@@ -1,0 +1,42 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import mode
+from PIL import Image
+
+# Open the TIFF image 
+image = Image.open("background.TIFF")
+
+# Get image dimensions
+width, height = image.size
+print(f"Image Dimensions: {width} x {height}")
+
+# Convert to grayscale (ensuring it's a single intensity channel)
+image = image.convert("L")
+
+# Convert image to NumPy array
+image_array = np.array(image)
+
+# Flatten the array to get pixel intensity values
+intensity_values = image_array.flatten()
+
+# Compute statistics
+mean_intensity = np.mean(intensity_values)
+median_intensity = np.median(intensity_values)
+mode_intensity = mode(intensity_values, keepdims=True).mode[0]
+
+# Print statistics
+print(f"Mean Intensity: {mean_intensity}")
+print(f"Median Intensity: {median_intensity}")
+print(f"Mode Intensity: {mode_intensity}")
+
+# Generate histogram
+plt.figure(figsize=(8, 6))
+plt.hist(intensity_values, bins=50, color='blue', alpha=0.7, edgecolor='black')
+
+# Labels and title
+plt.xlabel("Pixel Intensity")
+plt.ylabel("Frequency")
+plt.title("Histogram of Pixel Intensity Distribution")
+
+# Show the histogram
+plt.show()
