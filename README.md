@@ -8,6 +8,10 @@ Instructions for Calculating Image registration Matrix:
 01) Dowload said Combined_TIFF file.
 02)Open the file on ImageJ/Fiji and split the two seperate channles via IMAGE-> Color-> Split channel
 
+For more information please follow the link below:
+https://imagej.net/software/fiji/
+
+
 RUNNING THUNDERSTORM: PUNCTA LOCALIZATION
 03)In order to run ThunderStorm for each seperate image, Plugin -> ThunderStorm ->Run Analysis
 Please we aware: ThunderStorm has a pre-set camera setting. This can be changed by Plugi  -> ThunderStorm -> Camera Settings -> Enter the camera settings for the image analysis -> OK
